@@ -1,6 +1,7 @@
 
-from typing import List
+from typing import List, Literal
 from pathlib import Path
+from enum import IntEnum
 import csv
 import re
 
@@ -24,10 +25,10 @@ NLTK_PATH = WIN_PATH if WIN_PATH.exists() else None
 if NLTK_PATH: nltk.data.path.append(NLTK_PATH)
 
 # NLTK DATA INSTALLATION
-nltk.download('punkt_tab', download_dir=NLTK_PATH)
-nltk.download('stopwords', download_dir=NLTK_PATH)
-nltk.download('wordnet', download_dir=NLTK_PATH)
-nltk.download('averaged_perceptron_tagger_eng', download_dir=NLTK_PATH)
+nltk.download('punkt_tab', download_dir=NLTK_PATH, quiet=True)
+nltk.download('stopwords', download_dir=NLTK_PATH, quiet=True)
+nltk.download('wordnet', download_dir=NLTK_PATH, quiet=True)
+nltk.download('averaged_perceptron_tagger_eng', download_dir=NLTK_PATH, quiet=True)
 
 # CONST 
 STOP_WORDS = set(stopwords.words('english'))
@@ -38,6 +39,12 @@ RE_URL = re.compile(r"(https?://\S+|www\.\S+|(?:[a-zA-Z0-9-]+\.)+[a-zA-Z]{2,}/\S
 RE_RM_BAD_CHARS = re.compile(r"[^A-Za-z0-9\s\'\._!?-]")
 RE_RM_EXTRA_SPC = re.compile(r'\s+([?.!,\'"](?:\s|$))')
  
+# ENUM STEP CONTROLLER
+class Step(IntEnum):
+    C = 1   # Clean
+    T = 2   # Tokenize
+    S = 3   # Stopword
+    L = 4   # Lemmatize
  
 # ********************************
 # HELPER FUNCTIONS
@@ -90,14 +97,14 @@ def _rm_stopwords(tokens: List[str]) -> List[str]:
     return res_tokens
     
 
-def _preprocess_text(text):
+def _preprocess_text(text, step: Step):
     # Multi-step text preprocessing
     # Pending control mechanism
-    print("Data preprocessing...")
-    tokens = word_tokenize(text.lower())    # 1. Lowercase and tokenize text
-    tokens = _rm_stopwords(tokens)          # 2. Remove stop words
-    tokens = _lemmatize(tokens)             # 3. POS and lemmatize (get base form)
-    res_txt = ' '.join(tokens)              # 4. Rejoin tokens into text
+    t = text.lower()
+    if step >= Step.T:  t = word_tokenize(t)    # 1. Lowercase and tokenize text
+    if step >= Step.S:  t = _rm_stopwords(t)    # 2. Remove stop words
+    if step >= Step.L:  t = _lemmatize(t)       # 3. POS and lemmatize (get base form)
+    res_txt = ' '.join(t)                       # 4. Rejoin tokens into text
     return res_txt
 
 
@@ -143,14 +150,15 @@ def _save_data_csv(file_path: Path, suffix: str, df: pd.DataFrame):
     if not out_dir.exists(): Path.mkdir(out_dir)
     path = out_dir / f"{file_path.stem}_{suffix}.csv"
     # Save data
-    df.to_csv(path, index=False, quoting=csv.QUOTE_MINIMAL)
+    df.to_csv(path, index=False, header=False, quoting=csv.QUOTE_MINIMAL)
     print(f"Saved to {path}")
     
     
 def _load_data_csv(file_path: Path, suffix: str) -> pd.DataFrame | None:
     path = file_path.parent / "processed" / f"{file_path.stem}_{suffix}.csv"
     if not path.exists(): return 
-    df = pd.read_csv(path, quoting=csv.QUOTE_MINIMAL)
+    df = pd.read_csv(path, quoting=csv.QUOTE_MINIMAL, header=None)
+    df.columns = ['id', 'entity', 'sentiment', 'text']
     return df
 
 
@@ -158,23 +166,26 @@ def _print_samples(df: pd.DataFrame, n=10):
     print("Sample cleaned texts:")
     for i, text in enumerate(df['text'].sample(n, random_state=1)):
         print(f"Tweet {i}:\n{text}\n")
+        
 
 # ********************************
 # MAIN INTERFACE FUNCTION
 # ********************************
 @time_execution
-def preprocess(path: Path | str, run_all = False):
-    print("Step: Preprocessing...")
+def preprocess(path: Path | str, run_all = False, step: Step=Step.L):
+    
+    # '1' = Clean, '2' = Tokenize, '3' = Stopwords, '4' = Lemmatize
+    print(f"Preprocessing: Steps={step}")
     # Guard clause
     path = path if isinstance(path, Path) else Path(path)
     if not path.exists(): raise Exception(f"Path does not exit! {path}")
     
-    clean_sfx, preproc_sfx = 'cleaned', 'processed'
+    clean_sfx, preproc_sfx = 'cleaned', f'processed_{step}'
     if run_all: print("Rerunning all steps!")
     
     # load cached data
     df = _load_data_csv(path, preproc_sfx)
-    if not run_all and df is not None: return df
+    if step == Step.L and not run_all and df is not None: return df
     
     # Load partially cached
     df = _load_data_csv(path, clean_sfx)
@@ -183,17 +194,33 @@ def preprocess(path: Path | str, run_all = False):
         df = _load_data_raw(path)
         df['text'] = df['text'].apply(_clean_text)
         _save_data_csv(path, clean_sfx, df)
+        
     # Apply missing preprocessing steps
-    df['text'] = df['text'].apply(_preprocess_text)
+    if step == Step.C: return df
+    df['text'] = df['text'].apply(lambda text: _preprocess_text(text, step))
     _save_data_csv(path, preproc_sfx, df)
+    
     return df
     
     
 # ********************************
 # MAIN AND TESTING FUNCTIONS
 # ********************************
-if __name__ == "__main__":
-
+@time_execution
+def vader():
     file = ROOT / 'data' / 'training.csv'
-    df = preprocess(file)
+    df = preprocess(file, step=Step.L)
     _print_samples(df, 10)
+    
+    from nltk.sentiment.vader import SentimentIntensityAnalyzer
+    nltk.download('vader_lexicon', download_dir=NLTK_PATH)
+    
+    analyzer = SentimentIntensityAnalyzer()
+    
+    df['scores'] = df['text'].apply(analyzer.polarity_scores)
+    _save_data_csv(file, 'vader', df)
+
+if __name__ == "__main__":
+    vader()
+    
+    
