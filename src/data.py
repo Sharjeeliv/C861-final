@@ -1,207 +1,199 @@
-import pandas as pd
-import numpy as np
+
+from typing import List
 from pathlib import Path
 import csv
 import re
+
 import emoji
+import pandas as pd
+
 import nltk
-
-
-NTLK_PATH = "D:\\nltk_data"
-nltk.data.path.append(NTLK_PATH)
-nltk.download('punkt_tab', download_dir=NTLK_PATH)
-nltk.download('stopwords', download_dir=NTLK_PATH)
-nltk.download('wordnet', download_dir=NTLK_PATH)
-nltk.download('averaged_perceptron_tagger_eng', download_dir=NTLK_PATH)
- 
-ROOT = Path.cwd()
-
-# Phase 1
-    # Remove @'s and user references
-    #   Start at @ until whitespace   
-    # Keep hashtags (jsut remove hashtag?)
-
-    # Phase 2
-    # Remove extra punctuation and symbols
-    # Special character and digit removal
-    # tokenization
-    # lowercase all
-    # remove stopwrods
-    # lemmatization (?)
-    # join back, remove extra spacing
-    
-from nltk import pos_tag
-
-
-def clean_tweets(text: str) -> str:
-    
-    
-    # Remove extra whitespace, unfirom spacing
-    text = re.sub(r'\s+', ' ', text)
-    # Remove links and urls
-    RE_URL = re.compile(r"(https?://\S+|www\.\S+|(?:[a-zA-Z0-9-]+\.)+[a-zA-Z]{2,}/\S*)", re.MULTILINE)
-    text = re.sub(RE_URL, '', text)
-    # Fix ellipsies
-    text = re.sub(r'\.{2,}', '... ', text)
-    text = re.sub(r'\’', '\'', text)
-    
-    
-    # Handle emojis
-    text = emoji.demojize(text) # delimiters=("","")
-    # remove special characters
-    # text = re.sub(r'[^A-Za-z0-9\s\'\.]', ' ', text)
-    text = re.sub(r"[^A-Za-z0-9\s\'\._!?-]", " ", text)
-    
-    # Renormalize whitespace again
-    text = re.sub(r'\s+', ' ', text)
-    text = re.sub(r'\s+([?.!,\'"](?:\s|$))', r'\1', text)  # remove space before punctuation
-    
-    return text.strip()
-
-
 from nltk.tokenize import word_tokenize
 from nltk.corpus import stopwords
 from nltk.stem import WordNetLemmatizer
 from nltk.corpus import wordnet
 
-def get_wordnet_pos(treebank_tag):
-    """
-    Converts the NLTK POS tag (Treebank format) to the 
-    single-character POS tag required by WordNetLemmatizer.
-    """
-    if treebank_tag.startswith('J'):
-        return wordnet.ADJ
-    elif treebank_tag.startswith('V'):
-        return wordnet.VERB
-    elif treebank_tag.startswith('R'):
-        return wordnet.ADV
-    else:
-        # Default to Noun if tag is not recognized or is a Noun
-        return wordnet.NOUN
+from .utils import time_execution
 
-def process2(text: str) -> str:
-    # Initialize necessary components
-    stop_words = set(stopwords.words('english'))
+# ********************************
+# VARIABLE AND SETUP
+# ********************************
+# NLTK PATH SETUPS
+WIN_PATH =  Path("D:\\nltk_data")
+NLTK_PATH = WIN_PATH if WIN_PATH.exists() else None
+if NLTK_PATH: nltk.data.path.append(NLTK_PATH)
+
+# NLTK DATA INSTALLATION
+nltk.download('punkt_tab', download_dir=NLTK_PATH)
+nltk.download('stopwords', download_dir=NLTK_PATH)
+nltk.download('wordnet', download_dir=NLTK_PATH)
+nltk.download('averaged_perceptron_tagger_eng', download_dir=NLTK_PATH)
+
+# CONST 
+STOP_WORDS = set(stopwords.words('english'))
+ROOT = Path.cwd()
+
+# REGEXES
+RE_URL = re.compile(r"(https?://\S+|www\.\S+|(?:[a-zA-Z0-9-]+\.)+[a-zA-Z]{2,}/\S*)", re.MULTILINE)
+RE_RM_BAD_CHARS = re.compile(r"[^A-Za-z0-9\s\'\._!?-]")
+RE_RM_EXTRA_SPC = re.compile(r'\s+([?.!,\'"](?:\s|$))')
+ 
+ 
+# ********************************
+# HELPER FUNCTIONS
+# ********************************  
+def _clean_text(text: str) -> str:
+    # Text Cleaning and Normalization
+    print("Data cleaning...")
+    text = re.sub(r'\s+', ' ', text)            # 1. Normalize whitespaces
+    text = re.sub(RE_URL, '', text)             # 2. Remove URLs and links
+    # Punctuation Correction
+    text = re.sub(r'\.{2,}', '... ', text)      # 3. Fix ellipsies
+    text = re.sub(r'\’', '\'', text)            # 4. Fix apostrophes
+    # Special Character Handling
+    text = emoji.demojize(text)                 # 5. Emoji to text-form
+    text = re.sub(RE_RM_BAD_CHARS, " ", text)   # 6. Remove special characters
+    # Spacing Renormalization
+    text = re.sub(r'\s+', ' ', text)            # 7. Renormalize spacing 
+    text = re.sub(RE_RM_EXTRA_SPC, r'\1', text) # 8. Remove exta punc. space
+    return text.strip()
+
+
+def _get_pos(tag: str):
+    # Convert NLTK POS tag (Treebank format) to
+    # single-char POS tag needed by WordNetLemmatizer
+    if tag.startswith('J'):     return wordnet.ADJ
+    elif tag.startswith('V'):   return wordnet.VERB
+    elif tag.startswith('R'):   return wordnet.ADV
+    # Default to Noun if tag is not recognized or is a Noun
+    else:                       return wordnet.NOUN
+        
+
+def _lemmatize(tokens: List[str]) -> List[str]:
     lemmatizer = WordNetLemmatizer()
-
-    ## 1. Tokenization and Lowercasing
-    tokens = word_tokenize(text.lower())
-    
-    ## 2. Stop Word Removal
-    # This step is done here to keep the POS tagging accurate on only meaningful words
-    tokens_no_stop = [token for token in tokens if token.isalpha() and token not in stop_words]
-    
-    ## 3. POS Tagging
-    # Gets the Treebank POS tag for each token (e.g., ('running', 'VBG'))
-    tagged_tokens = nltk.pos_tag(tokens_no_stop)
-    
-    ## 4. Lemmatization with POS Tag
-    processed_tokens = []
-    for token, tag in tagged_tokens:
-        # Convert Treebank tag to WordNet tag
-        wntag = get_wordnet_pos(tag)
-        
-        # Lemmatize using the appropriate POS tag
-        lemma = lemmatizer.lemmatize(token, pos=wntag)
-        processed_tokens.append(lemma)
-        
-    ## 5. Join Tokens
-    cleaned_text = ' '.join(processed_tokens)
-    
-    return cleaned_text
-
-# def process2(text: str)-> str: 
-    
-#     tokens = word_tokenize(text.lower())
-    
-#     stop_words = set(stopwords.words('english'))
-#     tokens = [token for token in tokens if token not in stop_words]
-    
-#     lemmatizer = WordNetLemmatizer()
-#     tokens = [lemmatizer.lemmatize(token) for token in tokens]
-#     cleaned_text = ' '.join(tokens)
-    
-#     return cleaned_text
-    
-    # Step 4: Tokenize
-    
-
-    
-    # Step 5: Lowercase and remove stopwords
-    
-   
-    
-    # # Step 6: Lematize
-    # 
-    # lemmatizer = WordNetLemmatizer()
-    # def process_tokens(tokens):
-    #     processed = []
-    #     for token in tokens:
-    #         token = token.lower()
-    #         if token not in stop_words:
-    #             lemma = lemmatizer.lemmatize(token)
-    #             processed.append(lemma)
-    #     return processed
-    
-    # # Step 7: Join tokens back to text
-    # df['text'] = df['tokens'].apply(process_tokens).apply(lambda tokens: ' '.join(tokens))
+    tokens_tagged = nltk.pos_tag(tokens)
+    # Use pos (for better perf.)
+    tokens_res = []
+    for token, tag in tokens_tagged:
+        tag = _get_pos(tag)
+        lemma = lemmatizer.lemmatize(token, pos=tag)
+        tokens_res.append(lemma)
+    return tokens_res
 
 
-def preprocess(file_path: Path):
-    # Extract data
+def _rm_stopwords(tokens: List[str]) -> List[str]:
+    res_tokens = []
+    for token in tokens:
+        if not token.isalpha(): continue
+        if token in STOP_WORDS: continue
+        res_tokens.append(token)
+    return res_tokens
     
-    # Manual processing of csv:
-    # First three commas correctly separate id, entity, score
-    # We need to process text properly
-    # Step 1 raw read
-    rows = []
-    with open(file_path, "r", encoding="utf-8", newline="") as f:
-        text = f.read()
-        # All valid rows start with a number (id)
-        raw_rows = text.split("\n")
-        for row in raw_rows:
-            tmp = row.strip()
-            parts = row.strip().split(',', 3)
-            if not tmp: continue
-            if not tmp[0].isdigit() or len(parts) < 4:
-                rows[-1][-1] += " " + tmp
-                # print(f"Appending to previous row: {tmp}")
-                continue
-        
-            id_, game, sentiment, text = parts
-            rows.append([int(id_.strip()), game.strip(), sentiment.strip(), text.strip()])
+
+def _preprocess_text(text):
+    # Multi-step text preprocessing
+    # Pending control mechanism
+    print("Data preprocessing...")
+    tokens = word_tokenize(text.lower())    # 1. Lowercase and tokenize text
+    tokens = _rm_stopwords(tokens)          # 2. Remove stop words
+    tokens = _lemmatize(tokens)             # 3. POS and lemmatize (get base form)
+    res_txt = ' '.join(tokens)              # 4. Rejoin tokens into text
+    return res_txt
+
+
+def _load_data_raw(path: Path | str):
+    # Raw tweets are extremely malformed, we thus
+    # process it manually using heuristics ot extract
+    # the text data and then extensively processing it
+    print("Data loading...")
+    N_COL, rows = 4, []
     
-    print(f"Total rows processed: {len(rows)}")
+    # File opening and reading
+    f = open(path, "r", encoding="utf-8")
+    raw_text = f.read()
+    raw_rows = raw_text.split("\n")
+    
+    # Malformed text handling, iterate all raw rows
+    for row in raw_rows:
+        # Heuristic-based splitting
+        text = row.strip()
+        parts = text.split(',', N_COL-1)
+        if not text: continue
+        # Handle malform text by appending to prev row
+        if not text[0].isdigit() or len(parts) < N_COL:
+            rows[-1][-1] += " " + text
+            continue
+        # Append only VALID rows as new rows
+        id_, game, sentiment, text = parts
+        rows.append([int(id_.strip()), game.strip(), sentiment.strip(), text.strip()])
+    
+    # CLosing and conversion to df
+    f.close()
+    print(f"Rows loaded: {len(rows)}")
     df = pd.DataFrame(rows, columns=['id', 'entity', 'sentiment', 'text'])
-        
-    # for r in rows[:5]: print(r[3], '\n\n--')
+    return df
     
-    # Step 2: Clean 
-    df['text'] = df['text'].apply(clean_tweets)
+
+# ********************************
+# UTILITY FUNCTIONS
+# ********************************  
+def _save_data_csv(file_path: Path, suffix: str, df: pd.DataFrame):
+    # Setup path
+    out_dir = file_path.parent / "processed"
+    if not out_dir.exists(): Path.mkdir(out_dir)
+    path = out_dir / f"{file_path.stem}_{suffix}.csv"
+    # Save data
+    df.to_csv(path, index=False, quoting=csv.QUOTE_MINIMAL)
+    print(f"Saved to {path}")
     
-    # Step 3: Save cleaned data
-    cleaned_file = file_path.parent / f"{file_path.stem}_cleaned.csv"
-    df.to_csv(cleaned_file, index=False, quoting=csv.QUOTE_MINIMAL)
-    print(f"Cleaned data saved to: {cleaned_file}")
     
-    # Processing step 2:
-    df['text'] = df['text'].apply(process2)
-    
-    
-    
-    
+def _load_data_csv(file_path: Path, suffix: str) -> pd.DataFrame | None:
+    path = file_path.parent / "processed" / f"{file_path.stem}_{suffix}.csv"
+    if not path.exists(): return 
+    df = pd.read_csv(path, quoting=csv.QUOTE_MINIMAL)
+    return df
+
+
+def _print_samples(df: pd.DataFrame, n=10):
     print("Sample cleaned texts:")
-    for txt in df['text'].sample(10, random_state=1):
-        print(f"- {txt}\n")
-  
+    for i, text in enumerate(df['text'].sample(n, random_state=1)):
+        print(f"Tweet {i}:\n{text}\n")
+
+# ********************************
+# MAIN INTERFACE FUNCTION
+# ********************************
+@time_execution
+def preprocess(path: Path | str, run_all = False):
+    print("Step: Preprocessing...")
+    # Guard clause
+    path = path if isinstance(path, Path) else Path(path)
+    if not path.exists(): raise Exception(f"Path does not exit! {path}")
     
-
-
+    clean_sfx, preproc_sfx = 'cleaned', 'processed'
+    if run_all: print("Rerunning all steps!")
+    
+    # load cached data
+    df = _load_data_csv(path, preproc_sfx)
+    if not run_all and df is not None: return df
+    
+    # Load partially cached
+    df = _load_data_csv(path, clean_sfx)
+    if run_all or df is None: 
+        # If unavailable, recompute
+        df = _load_data_raw(path)
+        df['text'] = df['text'].apply(_clean_text)
+        _save_data_csv(path, clean_sfx, df)
+    # Apply missing preprocessing steps
+    df['text'] = df['text'].apply(_preprocess_text)
+    _save_data_csv(path, preproc_sfx, df)
+    return df
+    
+    
+# ********************************
+# MAIN AND TESTING FUNCTIONS
+# ********************************
 if __name__ == "__main__":
-    # We can pass each csv
+
     file = ROOT / 'data' / 'training.csv'
-    
-    preprocess(file)
-    
-    
-    print(file)
+    df = preprocess(file)
+    _print_samples(df, 10)
