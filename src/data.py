@@ -172,7 +172,6 @@ def _print_samples(df: pd.DataFrame, n=10):
 # ********************************
 @time_execution
 def preprocess(path: Path | str, run_all = False, step: Step=Step.L):
-    
     # '1' = Clean, '2' = Tokenize, '3' = Stopwords, '4' = Lemmatize
     print(f"Preprocessing: Steps={step}")
     # Guard clause
@@ -198,8 +197,31 @@ def preprocess(path: Path | str, run_all = False, step: Step=Step.L):
     if step == Step.C: return df
     df['text'] = df['text'].apply(lambda text: _preprocess_text(text, step))
     _save_data_csv(path, preproc_sfx, df)
-    
     return df
+
+def encode_sentiments(sentiment):
+    s = sentiment.lower().strip()
+    if s == 'positive':                   return  2
+    elif s == 'negative':                 return  1
+    elif s in ['neutral', 'irrelevant']:  return  0
+    print(f'Invalid label: {s}')
+    return 1 
+
+def get_datasets(train_file: str='training.csv', 
+                 test_file: str='testing.csv', 
+                 step: Step=Step.L, 
+                 rel_path: Path | str = 'data'):
+    
+    base = ROOT / rel_path
+    df_tr = preprocess(base / train_file, step=step)
+    df_te = preprocess(base / test_file, step=step)
+    
+    df_tr['sentiment'] = df_tr['sentiment'].apply(encode_sentiments)
+    df_te['sentiment'] = df_te['sentiment'].apply(encode_sentiments)
+    
+    X_tr, y_tr = df_tr['text'], df_tr['sentiment']
+    X_te, y_te = df_te['text'], df_te['sentiment']
+    return X_tr, y_tr, X_te, y_te
     
     
 # ********************************
@@ -218,6 +240,10 @@ def vader():
     
     df['scores'] = df['text'].apply(analyzer.polarity_scores)
     _save_data_csv(file, 'vader', df)
+    
+    # Vader is almost complete
+    # Properly storing metrics and computing results
+    # proper setup and calling, etc.
 
 if __name__ == "__main__":
     vader()
