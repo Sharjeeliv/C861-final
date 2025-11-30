@@ -51,7 +51,6 @@ class Step(IntEnum):
 # ********************************  
 def _clean_text(text: str) -> str:
     # Text Cleaning and Normalization
-    print("Data cleaning...")
     text = re.sub(r'\s+', ' ', text)            # 1. Normalize whitespaces
     text = re.sub(RE_URL, '', text)             # 2. Remove URLs and links
     # Punctuation Correction
