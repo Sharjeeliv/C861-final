@@ -13,6 +13,8 @@ from nltk.corpus import stopwords
 from nltk.stem import WordNetLemmatizer
 from nltk.corpus import wordnet
 
+from sklearn.model_selection import train_test_split
+
 from ..utils.utils import time_execution
 
 # ********************************
@@ -259,7 +261,12 @@ def get_datasets(train_file: str='training.csv',
     X_te, y_te = df_te['text'], df_te['sentiment']
     return X_tr, y_tr, X_te, y_te
     
-    
+
+def get_val_split(X_tr, y_tr, n: float = 0.2, r: int = 42):
+    splits = train_test_split(X_tr, y_tr, test_size=n,stratify=y_tr, random_state=r)
+    splits = [split.reset_index(drop=True) for split in splits]           
+    return splits
+
 # ********************************
 # MAIN AND TESTING FUNCTIONS
 # ********************************

@@ -1,0 +1,6 @@
+{
+    "N_VOCAB_VA": 16086,
+    "N_VOCAB_TE": 16860,
+    "N_CLASSES": 3,
+    "PAD_IDX": 1
+}

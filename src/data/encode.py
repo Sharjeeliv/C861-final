@@ -1,6 +1,7 @@
 from pathlib import Path
 from collections import Counter
 from itertools import chain
+import json
 
 from sklearn.feature_extraction.text import TfidfVectorizer
 
@@ -16,15 +17,21 @@ from torch import tensor, long
 # ********************************
 # VARIABLE AND SETUP
 # ********************************
-BATCH_SIZE = 64
+BATCH_SIZE = 256
 UNK_IDX, PAD_IDX = 0, 1
 SPECIAL = ['<unk>', '<pad>']
+
+P_ROOT = Path.cwd()
+P_PARAM = P_ROOT / 'config' / 'vocab.json' 
+
 
 # ********************************
 # HELPER FUNCTION
 # ********************************
-def _build_vocab(texts: pd.Series, min_freq=2):
-    print("Building Vocabulary...")
+def _build_vocab(texts: pd.Series, val, min_freq=2):
+    print("Building Vocabulary:", end=' ')
+    if not P_PARAM.exists(): raise Exception("Missing Vocab Params!")
+    
     token_stream = (word_tokenize(text) for text in texts)
     counter = Counter(chain.from_iterable(token_stream))
     filtered_tokens = [t for t, c in counter.items() if c >= min_freq]
@@ -32,8 +39,21 @@ def _build_vocab(texts: pd.Series, min_freq=2):
     # Create sorted list of tokens including specials
     all_tokens = SPECIAL + sorted(filtered_tokens)
     # Create the final word-to-index dictionary (the vocab)
-    word_to_idx = {word: idx for idx, word in enumerate(all_tokens)}
-    return word_to_idx, all_tokens
+    vocab = {word: idx for idx, word in enumerate(all_tokens)}
+    
+    # Update Vocab.py Params
+    with open(P_PARAM, 'r+') as f:
+        params = json.load(f)
+        f.seek(0) # Reset the file pointer
+        key = f"N_VOCAB_{'VA' if val else 'TE'}"
+        print(key)
+        params[key]          = len(vocab)
+        params['PAD_IDX']    = vocab['<pad>']
+        json.dump(params, f, indent=4)
+        f.truncate()
+    print(f"Tokens={len(vocab)}")
+
+    return vocab, all_tokens
 
 
 def _text_pipeline(text, vocab):
@@ -76,7 +96,7 @@ def _get_loader(dataset, batch_size, shuffle=False):
 class SentimentDataset(Dataset):
     def __init__(self, texts, labels, vocab):
         self.texts = texts                          # 1. Store list of cleaned texts
-        self.labels = tensor(labels, dtype=long)    # 2. Convert int label to LongTensor
+        self.labels = tensor(labels.values, dtype=long)    # 2. Convert int label to LongTensor
         self.vocab = vocab                          # 3. Convert string text to ID list
 
     def __len__(self):
@@ -104,10 +124,11 @@ def tfid_encode(X_tr, X_te, max_feat=10000, ngram_range=(1, 3)):
 
 # Sequence Encoding: RNN, LSTM, etc.
 def seq_encode(X_tr: pd.Series, y_tr: pd.Series,
-               X_te: pd.Series, y_te: pd.Series):
+               X_te: pd.Series, y_te: pd.Series,
+               val=False):
     print("Encoding...")
     # 1. Build vocabulary (word-to-id)
-    vocab, _ = _build_vocab(X_tr)
+    vocab, _ = _build_vocab(X_tr, val)
     # 2. Build datasets
     tr_dataset = SentimentDataset(X_tr, y_tr, vocab)
     te_dataset = SentimentDataset(X_te, y_te, vocab)
