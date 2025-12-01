@@ -1,5 +1,4 @@
-
-from typing import List, Literal
+from typing import List
 from pathlib import Path
 from enum import IntEnum
 import csv
@@ -14,7 +13,7 @@ from nltk.corpus import stopwords
 from nltk.stem import WordNetLemmatizer
 from nltk.corpus import wordnet
 
-from .utils import time_execution
+from ..utils import time_execution
 
 # ********************************
 # VARIABLE AND SETUP
@@ -290,5 +289,3 @@ def temp():
 
 if __name__ == "__main__":
     temp()
-    
-    
