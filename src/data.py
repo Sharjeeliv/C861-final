@@ -170,6 +170,15 @@ def _load_data_raw(path: Path | str):
     print(f"Rows loaded: {len(rows)}")
     df = pd.DataFrame(rows, columns=['id', 'entity', 'sentiment', 'text'])
     return df
+
+
+def _encode_sentiments(sentiment):
+    s = sentiment.lower().strip()
+    if s == 'positive':                   return  2
+    elif s == 'negative':                 return  1
+    elif s in ['neutral', 'irrelevant']:  return  0
+    print(f'Invalid label: {s}')
+    return 1 
     
 
 # ********************************
@@ -234,13 +243,6 @@ def preprocess(path: Path | str, run_all = False, step: Step=Step.L):
     _save_data_csv(path, preproc_sfx, df)
     return df
 
-def encode_sentiments(sentiment):
-    s = sentiment.lower().strip()
-    if s == 'positive':                   return  2
-    elif s == 'negative':                 return  1
-    elif s in ['neutral', 'irrelevant']:  return  0
-    print(f'Invalid label: {s}')
-    return 1 
 
 def get_datasets(train_file: str='training.csv', 
                  test_file: str='testing.csv', 
@@ -251,8 +253,8 @@ def get_datasets(train_file: str='training.csv',
     df_tr = preprocess(base / train_file, step=step)
     df_te = preprocess(base / test_file, step=step)
     
-    df_tr['sentiment'] = df_tr['sentiment'].apply(encode_sentiments)
-    df_te['sentiment'] = df_te['sentiment'].apply(encode_sentiments)
+    df_tr['sentiment'] = df_tr['sentiment'].apply(_encode_sentiments)
+    df_te['sentiment'] = df_te['sentiment'].apply(_encode_sentiments)
     
     X_tr, y_tr = df_tr['text'], df_tr['sentiment']
     X_te, y_te = df_te['text'], df_te['sentiment']

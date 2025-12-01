@@ -7,21 +7,28 @@ from sklearn.metrics import mean_absolute_error, accuracy_score
 from .data import get_datasets
 from .utils.utils import time_execution
 
+BATCH_SIZE = 64
+
+def tfid_encode(X_tr, X_te, max_feat=10000, ngram_range=(1, 3)):
+    print("Encoding...")
+    vectorizer = TfidfVectorizer(max_features=max_feat, ngram_range=ngram_range)
+    X_tr_tfid = vectorizer.fit_transform(X_tr)
+    X_te_tfid = vectorizer.transform(X_te)
+    return X_tr_tfid, X_te_tfid
+    
+
+
 @time_execution
 def ml_process(X_tr, y_tr, X_te, y_te):
     
-    print("Encoding...")
-    tfidf_vectorizer = TfidfVectorizer(max_features=10000, ngram_range=(1, 3))
-    X_train_tfidf = tfidf_vectorizer.fit_transform(X_tr)
-    X_test_tfidf = tfidf_vectorizer.transform(X_te)
-
+    X_tr, X_te = tfid_encode(X_tr, X_te)
     print("Training...")
     # model = LogisticRegression(max_iter=1000)
     model = LinearSVC()
-    model.fit(X_train_tfidf, y_tr)
+    model.fit(X_tr, y_tr)
     
     print("Testing...")
-    y_pred = model.predict(X_test_tfidf)
+    y_pred = model.predict(X_te)
     res = accuracy_score(y_te, y_pred)
     print(f"Accuracy: {res}")
 
@@ -37,76 +44,43 @@ from .utils.data import SentimentDataset, collate_batch
 from torch.utils.data import DataLoader
 
 
+
+def get_loader(dataset, batch_size, shuffle=False):
+    return DataLoader(
+        dataset, 
+        batch_size=batch_size, 
+        shuffle=shuffle,
+        collate_fn=collate_batch
+    )
+
+
+def seq_encode(X_tr, y_tr, X_te: pd.Series, y_te):
+    # 1. Build vocabulary (word-to-id)
+    vocab, _ = _build_vocab(X_tr)
+    # 2. Build datasets
+    tr_dataset = SentimentDataset(X_tr, y_tr, vocab)
+    te_dataset = SentimentDataset(X_te, y_te, vocab)
+    # 3. Build dataloades
+    tr_loader = get_loader(tr_dataset, BATCH_SIZE, True)
+    te_loader = get_loader(te_dataset, BATCH_SIZE, False)
+    
+    return tr_loader, te_loader
+
+
+
 def dl_preocess(X_tr, y_tr, X_te: pd.Series, y_te):
     
-    # 1. Build vocabulary and convert seq. to ints
-    word_to_idx, all_tokens = _build_vocab(X_tr)
-
-    # Define necessary constants
-    VOCAB_SIZE = len(word_to_idx)
-    PAD_IDX = word_to_idx['<pad>']
-    UNK_IDX = word_to_idx['<unk>']
+    tr_loader, te_loader = seq_encode(X_tr, y_tr, X_te, y_te)
     
-    print(VOCAB_SIZE)
-    print(PAD_IDX)
-    print(UNK_IDX)
-    
-    def text_pipeline(text, word_to_idx):
-        UNK_IDX = word_to_idx['<unk>']
-        # Lookup index, defaulting to UNK_IDX if not found
-        return [word_to_idx.get(token, UNK_IDX) for token in word_tokenize(text)]
-    
-    # for text in X_te.head(10):
-    #     print(text)
-    #     print(text_pipeline(text, word_to_idx))
-    #     print("\n")
-    
-    # Instantiate datasets
-    # Assuming X_tr, y_tr_encoded, X_te, y_te_encoded are ready
-    train_dataset = SentimentDataset(X_tr, y_tr, text_pipeline, word_to_idx)
-    test_dataset = SentimentDataset(X_te, y_te, text_pipeline, word_to_idx)
-    
-    # --- Hyperparameter ---
-    BATCH_SIZE = 64
-
-    train_dataloader = DataLoader(
-        train_dataset, 
-        batch_size=BATCH_SIZE, 
-        shuffle=True,          # Shuffle training data
-        collate_fn=collate_batch
-    )
-
-    test_dataloader = DataLoader(
-        test_dataset, 
-        batch_size=BATCH_SIZE, 
-        shuffle=False,         # Do not shuffle test data
-        collate_fn=collate_batch
-    )
-
-    print(f"DataLoaders created with batch size: {BATCH_SIZE}")
-    
-    for labels, texts in train_dataloader:
+    for labels, texts in tr_loader:
         print(f"Batch Labels Shape: {labels.shape}")   # e.g., torch.Size([64])
         print(f"Batch Texts Shape: {texts.shape}")    # e.g., torch.Size([64, 98])
         break
-    
-    
-    # 1. Build vocabulary and convert seq. to ints
-    #    a. Ensure vocab is for words > MIN_FREQ
-    #    b. Other words become unk?
-    # 2. Pad the sequence?
-    
-    # 3. Can use for cnn, rnn and lstm now>
-    #    a. First layer of model will produce embeddings 
-    
-    pass
-    
     
 
 def test():
     X_tr, y_tr, X_te, y_te = get_datasets()
     dl_preocess(X_tr, y_tr, X_te, y_te)
-    
 
 
 if __name__ == "__main__":

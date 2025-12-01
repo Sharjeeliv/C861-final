@@ -9,8 +9,12 @@ from collections import Counter
 from itertools import chain
 
 
+UNK_IDX = 0
+PAD_IDX = 1
+SPECIAL = ['<unk>', '<pad>']
+
 @time_execution
-def _build_vocab(texts: pd.Series, min_freq=2, specials=['<unk>', '<pad>']):
+def _build_vocab(texts: pd.Series, min_freq=2):
     
     print("Building Vocabulary...")
     token_stream = (word_tokenize(text) for text in texts)
@@ -18,24 +22,27 @@ def _build_vocab(texts: pd.Series, min_freq=2, specials=['<unk>', '<pad>']):
     filtered_tokens = [token for token, count in counter.items() if count >= min_freq]
     
     # Create sorted list of tokens including specials
-    all_tokens = specials + sorted(filtered_tokens)
+    all_tokens = SPECIAL + sorted(filtered_tokens)
     # Create the final word-to-index dictionary (the vocab)
     word_to_idx = {word: idx for idx, word in enumerate(all_tokens)}
     return word_to_idx, all_tokens
 
 
+def text_pipeline(text, vocab):
+        # Lookup index, defaulting to UNK_IDX if not found
+        return [vocab.get(token, UNK_IDX) for token in word_tokenize(text)]
 
 import torch
 from torch.utils.data import Dataset, DataLoader
 
 class SentimentDataset(Dataset):
-    def __init__(self, texts, labels_encoded, text_pipeline, word_to_idx):
+    def __init__(self, texts, labels, vocab):
         # 1. Store the lists of cleaned text and integer labels
         self.texts = texts
         # 2. Convert integer labels to a PyTorch LongTensor (required for classification loss)
-        self.labels = torch.tensor(labels_encoded, dtype=torch.long)
-        self.pipeline = text_pipeline # The function that converts text string to list of IDs
-        self.word_to_idx = word_to_idx
+        self.labels = torch.tensor(labels, dtype=torch.long)
+        # self.pipeline = text_pipeline # The function that converts text string to list of IDs
+        self.vocab = vocab
 
     def __len__(self):
         # Returns the total number of samples
@@ -43,7 +50,7 @@ class SentimentDataset(Dataset):
 
     def __getitem__(self, idx):
         # Returns one sample: the sequence of token IDs and the target label
-        token_ids = self.pipeline(self.texts[idx], self.word_to_idx)
+        token_ids = text_pipeline(self.texts[idx], self.vocab)
         return token_ids, self.labels[idx]
     
     
