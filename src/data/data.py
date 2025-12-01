@@ -13,7 +13,7 @@ from nltk.corpus import stopwords
 from nltk.stem import WordNetLemmatizer
 from nltk.corpus import wordnet
 
-from ..utils import time_execution
+from ..utils.utils import time_execution
 
 # ********************************
 # VARIABLE AND SETUP
@@ -263,10 +263,13 @@ def get_datasets(train_file: str='training.csv',
 # ********************************
 # MAIN AND TESTING FUNCTIONS
 # ********************************
+from sklearn.metrics import f1_score, accuracy_score, precision_score, recall_score
+
 @time_execution
 def vader():
     file = ROOT / 'data' / 'training.csv'
     df = preprocess(file, step=Step.L)
+    # df = _load_data_raw(file)
     _print_samples(df, 10)
     
     from nltk.sentiment.vader import SentimentIntensityAnalyzer
@@ -274,8 +277,29 @@ def vader():
     
     analyzer = SentimentIntensityAnalyzer()
     
-    df['scores'] = df['text'].apply(analyzer.polarity_scores)
-    _save_data_csv(file, 'vader', df)
+    def relabel_compound(score):
+        if score['compound'] > 0.05:  return 2
+        if score['compound'] < -0.05: return 1
+        return 0
+    
+    def _metrics(all_labels, all_preds):
+        a = accuracy_score(all_labels, all_preds)
+        p = precision_score(all_labels, all_preds, average='macro')
+        r = recall_score(all_labels, all_preds, average='macro')
+        f = f1_score(all_labels, all_preds, average='macro')
+        return a, p, r, f
+    
+    # df = df.dropna()
+    scores = df['text'].apply(analyzer.polarity_scores)
+    scores = scores.apply(relabel_compound)
+    
+    df['sentiment'] = df['sentiment'].apply(_encode_sentiments)
+    a, p, r, f = _metrics(df['sentiment'], scores)
+    print(f"Accuracy:   {a:.4}")
+    print(f"Precision:  {p:.4}")
+    print(f"Recall:     {r:.4}")
+    print(f"F1-SCore:   {f:.4}")
+    # _save_data_csv(file, 'vader', df)
     
     # Vader is almost complete
     # Properly storing metrics and computing results
@@ -288,4 +312,4 @@ def temp():
     
 
 if __name__ == "__main__":
-    temp()
+    vader()

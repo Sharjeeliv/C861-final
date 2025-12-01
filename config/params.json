@@ -1,0 +1,25 @@
+{
+  "LeNet5": {
+    "lr": ["log", 1e-4, 1e-2],
+    "optimizer": ["cat", "SGD", "Adam"],
+    "weight_decay": ["log", 1e-5, 1e-2]
+  },
+  "VGG16": {
+    "lr": ["log", 1e-4, 1e-2],
+    "optimizer": ["cat", "SGD", "Adam"],
+    "weight_decay": ["log", 1e-5, 1e-2]
+  },
+  "ResNet18": {
+    "lr": ["log", 1e-4, 1e-2],
+    "optimizer": ["cat", "SGD", "Adam"],
+    "weight_decay": ["log", 1e-5, 1e-2]
+  },
+  "CNN": {
+    "num_conv_layers": ["int", 2, 4],
+    "filters": ["cat", 16, 32, 64, 128],
+    "kernel_size": ["cat", 3, 5],
+    "activation": ["cat", "ReLU", "LeakyReLU"],
+    "fc_size": ["cat", 64, 128, 256],
+    "dropout": ["flt", 0.2, 0.5]
+  }
+}
