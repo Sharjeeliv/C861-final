@@ -14,7 +14,7 @@ from nltk.corpus import stopwords
 from nltk.stem import WordNetLemmatizer
 from nltk.corpus import wordnet
 
-from .utils import time_execution
+from .utils.utils import time_execution
 
 # ********************************
 # VARIABLE AND SETUP
@@ -48,7 +48,39 @@ class Step(IntEnum):
  
 # ********************************
 # HELPER FUNCTIONS
-# ********************************  
+# ********************************
+
+def _filter_rows(df: pd.DataFrame): 
+    print("\nFiltering...")
+    
+    # Compute length and quartiles
+    df['text_length'] = df['text'].apply(len)
+    Q1 = df['text_length'].quantile(0.25)
+    Q3 = df['text_length'].quantile(0.75)
+    IQR = Q3 - Q1
+    
+    # Define boundaries
+    lower_bound = 3                 # Domain specific, min word size
+    upper_bound = Q3 * 1.5 * IQR    # IQR Method
+
+    print(f"Q1: {Q1}, Q3: {Q3}, IQR: {IQR}")
+    print(f"Lower Bound (chars): {int(lower_bound)}")
+    print(f"Upper Bound (chars): {int(upper_bound)}")
+    
+    # Create mask to identify non-outliers
+    mask =  (df['text_length'] >= lower_bound) & \
+            (df['text_length'] <= upper_bound)
+            
+    # Apply mask to filter data and drop temp length col
+    df_filtered = df[mask].copy()
+    df_filtered = df_filtered.drop(columns=['text_length'])
+    
+    print(f"Original rows: {len(df)}")
+    print(f"Filtered rows: {len(df_filtered)}")
+    print(f"Removed  rows: {len(df) - len(df_filtered)}")
+    return df_filtered
+    
+
 def _clean_text(text: str) -> str:
     # Text Cleaning and Normalization
     text = re.sub(r'\s+', ' ', text)            # 1. Normalize whitespaces
@@ -109,9 +141,9 @@ def _preprocess_text(text, step: Step):
 
 def _load_data_raw(path: Path | str):
     # Raw tweets are extremely malformed, we thus
-    # process it manually using heuristics ot extract
+    # process it manually using heuristics to extract
     # the text data and then extensively processing it
-    print("Data loading...")
+    print("\nData loading...")
     N_COL, rows = 4, []
     
     # File opening and reading
@@ -190,12 +222,15 @@ def preprocess(path: Path | str, run_all = False, step: Step=Step.L):
     if run_all or df is None: 
         # If unavailable, recompute
         df = _load_data_raw(path)
+        print("\nCleaning...")
         df['text'] = df['text'].apply(_clean_text)
         _save_data_csv(path, clean_sfx, df)
         
     # Apply missing preprocessing steps
     if step == Step.C: return df
+    print("\nPreprocessing...")
     df['text'] = df['text'].apply(lambda text: _preprocess_text(text, step))
+    df = _filter_rows(df)
     _save_data_csv(path, preproc_sfx, df)
     return df
 
@@ -245,7 +280,13 @@ def vader():
     # Properly storing metrics and computing results
     # proper setup and calling, etc.
 
+
+def temp():
+    file = ROOT / 'data' / 'training.csv'
+    df = preprocess(file, step=Step.L, run_all=True)
+    
+
 if __name__ == "__main__":
-    vader()
+    temp()
     
     
