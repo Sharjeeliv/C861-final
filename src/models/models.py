@@ -23,19 +23,32 @@ class BasicRNN(nn.Module):
 # ********************************
 # BASIC LSTM
 # ********************************
+# class BasicLSTM(nn.Module):
+#     def __init__(self, vocab_size, embed_dim, hidden_dim, num_classes, pad_idx):
+#         super(BasicLSTM, self).__init__()
+#         self.embedding = nn.Embedding(vocab_size, embed_dim, padding_idx=pad_idx)
+#         self.lstm = nn.LSTM(embed_dim, hidden_dim, batch_first=True)
+#         self.dropout = nn.Dropout(0.5)
+#         self.fc = nn.Linear(hidden_dim, num_classes)
+
+#     def forward(self, text):
+#         embedded = self.embedding(text)
+#         _, (hidden, _) = self.lstm(embedded)
+#         hidden_last = hidden.squeeze(0) 
+#         return self.fc(hidden_last)
 class BasicLSTM(nn.Module):
     def __init__(self, vocab_size, embed_dim, hidden_dim, num_classes, pad_idx):
-        super(BasicLSTM, self).__init__()
+        super().__init__()
         self.embedding = nn.Embedding(vocab_size, embed_dim, padding_idx=pad_idx)
         self.lstm = nn.LSTM(embed_dim, hidden_dim, batch_first=True)
+        self.dropout = nn.Dropout(0.5)
         self.fc = nn.Linear(hidden_dim, num_classes)
 
     def forward(self, text):
-        embedded = self.embedding(text)
-        _, (hidden, _) = self.lstm(embedded)
-        hidden_last = hidden.squeeze(0) 
+        embedded = self.embedding(text)             # (B, T, E)
+        output, (hidden, cell) = self.lstm(embedded)
+        hidden_last = self.dropout(hidden[-1])      # Extract final layer’s hidden state
         return self.fc(hidden_last)
-
 
 # ********************************
 # BASIC 1D CNN
