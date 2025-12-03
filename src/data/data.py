@@ -76,9 +76,13 @@ def _filter_rows(df: pd.DataFrame):
     df_filtered = df[mask].copy()
     df_filtered = df_filtered.drop(columns=['text_length'])
     
+    # Removing Empty rows
+    df_filtered = df_filtered[df_filtered['text'].str.strip().str.len() > 0]
+    
     print(f"Original rows: {len(df)}")
     print(f"Filtered rows: {len(df_filtered)}")
     print(f"Removed  rows: {len(df) - len(df_filtered)}")
+    
     return df_filtered
     
 
@@ -248,17 +252,19 @@ def preprocess(path: Path | str, run_all = False, step: Step=Step.L):
 def get_datasets(train_file: str='training.csv', 
                  test_file: str='testing.csv', 
                  step: Step=Step.L, 
-                 rel_path: Path | str = 'data'):
+                 rel_path: Path | str = 'data',
+                 run_all=False):
     
     base = ROOT / rel_path
-    df_tr = preprocess(base / train_file, step=step)
-    df_te = preprocess(base / test_file, step=step)
+    df_tr = preprocess(base / train_file, step=step, run_all=run_all)
+    df_te = preprocess(base / test_file, step=step, run_all=run_all)
     
     df_tr['sentiment'] = df_tr['sentiment'].apply(_encode_sentiments)
     df_te['sentiment'] = df_te['sentiment'].apply(_encode_sentiments)
     
     X_tr, y_tr = df_tr['text'], df_tr['sentiment']
     X_te, y_te = df_te['text'], df_te['sentiment']
+    
     return X_tr, y_tr, X_te, y_te
     
 

@@ -29,8 +29,8 @@ P_ROOT = Path.cwd()
 P_PARAM = P_ROOT / 'config' / 'vocab.json' 
 
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-N_TRIALS = 20
-EPOCHS = 20
+N_TRIALS = 2
+EPOCHS = 2
 
 
 # ********************************
@@ -47,11 +47,11 @@ def _metrics(all_labels, all_preds):
 def _train(model, dataloader, criterion, optimizer):
     model.train()
     total_loss = 0
-    for labels, text in dataloader:
-        labels, text = labels.to(device), text.to(device)
+    for labels, text, length in dataloader:
+        labels, text, length = labels.to(device), text.to(device), length.to(device)
         optimizer.zero_grad()
         # Compute pred and cost
-        predicted_labels = model(text)
+        predicted_labels = model(text, length)
         loss = criterion(predicted_labels, labels)
         # Backprop.
         loss.backward()
@@ -65,11 +65,11 @@ def _evaluate(model, dataloader, criterion, val=False):
     model.eval()
     total_loss, all_preds, all_labels = 0, [], []
     with torch.no_grad():
-        for labels, text in dataloader:
-            labels, text = labels.to(device), text.to(device)
+        for labels, text, length in dataloader:
+            labels, text, length = labels.to(device), text.to(device), length.to(device)
             
             # Compute pred and cost
-            predicted_labels = model(text)
+            predicted_labels = model(text, length)
             loss = criterion(predicted_labels, labels)
             
             # Loss calc. and result storage
@@ -168,13 +168,19 @@ def _test(model_name: str, model_params, tr_loader: DataLoader, te_loader: DataL
 # MAIN FUNCTIONS
 # ********************************
 if __name__ == '__main__':
-    X_tr, y_tr, X_te, y_te = get_datasets()
+    RUN_ALL = False
+    X_tr, y_tr, X_te, y_te = get_datasets(run_all=RUN_ALL)
     X_tn, X_va, y_tn, y_va = get_val_split(X_tr, y_tr)
     
     tr_loader, te_loader = seq_encode(X_tr, y_tr, X_te, y_te)
     tn_loader, va_loader = seq_encode(X_tn, y_tn, X_va, y_va, val=True)
+
+    # print((X_tr.str.strip().str.len() == 0).sum())
+    # print((X_te.str.strip().str.len() == 0).sum())
+    # print((X_tn.str.strip().str.len() == 0).sum())
+    # print((X_va.str.strip().str.len() == 0).sum())
     
-    MODEL_NAME = 'LSTM'
+    MODEL_NAME = 'CNN'
     print('Tuning')
     params = _tune(MODEL_NAME, tn_loader, va_loader)
     print('Testing')

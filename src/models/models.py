@@ -13,7 +13,7 @@ class BasicRNN(nn.Module):
         self.rnn = nn.GRU(embed_dim, hidden_dim, batch_first=True)
         self.fc = nn.Linear(hidden_dim, num_classes)
 
-    def forward(self, text):
+    def forward(self, text, lengths):
         embedded = self.embedding(text)
         _, hidden = self.rnn(embedded)
         hidden_last = hidden.squeeze(0) 
@@ -39,16 +39,50 @@ class BasicRNN(nn.Module):
 class BasicLSTM(nn.Module):
     def __init__(self, vocab_size, embed_dim, hidden_dim, num_classes, pad_idx):
         super().__init__()
-        self.embedding = nn.Embedding(vocab_size, embed_dim, padding_idx=pad_idx)
-        self.lstm = nn.LSTM(embed_dim, hidden_dim, batch_first=True)
-        self.dropout = nn.Dropout(0.5)
-        self.fc = nn.Linear(hidden_dim, num_classes)
 
-    def forward(self, text):
-        embedded = self.embedding(text)             # (B, T, E)
-        output, (hidden, cell) = self.lstm(embedded)
-        hidden_last = self.dropout(hidden[-1])      # Extract final layer’s hidden state
-        return self.fc(hidden_last)
+        self.embedding = nn.Embedding(
+            vocab_size, embed_dim, padding_idx=pad_idx
+        )
+        
+        self.lstm = nn.LSTM(
+            embed_dim,
+            hidden_dim,
+            batch_first=True,
+            bidirectional=True
+        )
+
+        self.dropout = nn.Dropout(0.3)
+        self.fc = nn.Linear(hidden_dim * 2, num_classes)
+
+    def forward(self, text, lengths):
+        # text: (B, T)
+        embedded = self.embedding(text)  # (B, T, E)
+
+        # Pack sequences so LSTM ignores padding
+        packed = nn.utils.rnn.pack_padded_sequence(
+            embedded, lengths.cpu(), batch_first=True, enforce_sorted=False
+        )
+
+        packed_output, (hidden, cell) = self.lstm(packed)
+
+        # Unpack
+        output, _ = nn.utils.rnn.pad_packed_sequence(
+            packed_output, batch_first=True
+        )  
+        # output: (B, T, 2*H)
+
+        # Create mask for valid tokens
+        mask = (text != 0).unsqueeze(-1)  # pad_idx = 0
+        output = output * mask  # (B, T, 2H)
+
+        # Mean pooling over valid tokens
+        summed = output.sum(1)
+        lengths = lengths.unsqueeze(1)
+        pooled = summed / lengths  # (B, 2H)
+
+        out = self.dropout(pooled)
+        return self.fc(out)
+
 
 # ********************************
 # BASIC 1D CNN
@@ -69,7 +103,7 @@ class TextCNN(nn.Module):
         
         self.fc = nn.Linear(len(self.convs) * num_filters, num_classes)
 
-    def forward(self, text):
+    def forward(self, text, lengths):
         # text shape: [batch_size, seq_len]
         # Permute to [batch_size, embed_dim, seq_len] for Conv1d
         embedded = self.embedding(text).permute(0, 2, 1) 

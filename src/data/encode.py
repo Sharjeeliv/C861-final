@@ -61,25 +61,39 @@ def _text_pipeline(text, vocab):
         return [vocab.get(t, UNK_IDX) for t in word_tokenize(text)]
 
 
+# def _collate_batch(batch):
+#     # Function to collate data samples into a batch tensor with padding.
+#     label_list, text_list = [], []
+    
+#     for text_ids, label in batch:
+#         label_list.append(label)
+#         # Convert the list of IDs (text_ids) to a PyTorch tensor
+#         processed_text = torch.tensor(text_ids, dtype=torch.long)
+#         text_list.append(processed_text)
+    
+#     # Pad all sequences in the batch to the length of the longest one in THIS batch.
+#     # batch_first=True makes the tensor shape [batch_size, sequence_length]
+#     padded_texts = pad_sequence(
+#         text_list, 
+#         batch_first=True, 
+#         padding_value=PAD_IDX
+#     )
+#     # Return labels and padded texts as Tensors
+#     return torch.stack(label_list), padded_texts
 def _collate_batch(batch):
-    # Function to collate data samples into a batch tensor with padding.
-    label_list, text_list = [], []
-    
+    label_list, text_list, lengths = [], [], []
+
     for text_ids, label in batch:
+        processed = torch.tensor(text_ids, dtype=torch.long)
+        text_list.append(processed)
+        lengths.append(len(processed))
         label_list.append(label)
-        # Convert the list of IDs (text_ids) to a PyTorch tensor
-        processed_text = torch.tensor(text_ids, dtype=torch.long)
-        text_list.append(processed_text)
+
+    padded_texts = pad_sequence(text_list, batch_first=True, padding_value=PAD_IDX)
+    lengths = torch.tensor(lengths, dtype=torch.long)
+
+    return torch.stack(label_list), padded_texts, lengths
     
-    # Pad all sequences in the batch to the length of the longest one in THIS batch.
-    # batch_first=True makes the tensor shape [batch_size, sequence_length]
-    padded_texts = pad_sequence(
-        text_list, 
-        batch_first=True, 
-        padding_value=PAD_IDX
-    )
-    # Return labels and padded texts as Tensors
-    return torch.stack(label_list), padded_texts
 
 
 def _get_loader(dataset, batch_size, shuffle=False):
