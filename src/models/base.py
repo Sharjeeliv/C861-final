@@ -26,7 +26,7 @@ class BaseCNN(EmbeddingModel):
         # FC layer input size: (number of kernels * number of filters)
         self.fc = nn.Linear(len(self.convs) * num_filters, num_classes)
 
-    def forward(self, text, lengths):
+    def forward(self, text, lengths, score=None):
         # text shape: [B, T]
         embedded = self.embedding(text) 
         # Permute for Conv1d: [B, E, T]
@@ -54,7 +54,7 @@ class BaseRNN(EmbeddingModel):
         self.rnn = nn.GRU(embed_dim, hidden_dim, batch_first=True)
         self.fc = nn.Linear(hidden_dim, num_classes)
 
-    def forward(self, text, lengths):
+    def forward(self, text, lengths, score=None):
         embedded = self.embedding(text) # [B, T, E]
         
         # 1. Apply Packing (Crucial for RNNs) 
@@ -92,13 +92,12 @@ class BaseLSTM(EmbeddingModel):
         # FC layer input size must be 2 * hidden_dim
         self.fc = nn.Linear(hidden_dim * 2, num_classes) 
 
-    def forward(self, text, lengths):
+    def forward(self, text, lengths, score=None):
         embedded = self.embedding(text)
         
         # 1. Apply Packing
         packed = pack_padded_sequence(
-            embedded, lengths.cpu(), batch_first=True, enforce_sorted=False
-        )
+            embedded, lengths.cpu(), batch_first=True, enforce_sorted=False)
 
         # 2. Process with LSTM (Only capture final hidden state (h))
         # We discard the packed output and the cell state (c)

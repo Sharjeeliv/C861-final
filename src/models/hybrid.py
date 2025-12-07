@@ -5,7 +5,6 @@ import torch.nn.functional as F
 from .utils import SingleCNNBlock, EmbeddingModel
 from torch.nn.utils.rnn import pad_packed_sequence, pack_padded_sequence
 
-
 # ********************************
 # HYBRID: CNN -> RNN
 # ********************************
@@ -20,7 +19,7 @@ class Hybrid1(EmbeddingModel):
         self.rnn = nn.GRU(num_filters, hidden_dim, batch_first=True)
         self.fc = nn.Linear(hidden_dim, num_classes)
 
-    def forward(self, text, lengths):
+    def forward(self, text, lengths, score=None):
         embedded = self.embedding(text)             # [B, T, E]
         x = self.cnn_block(embedded).transpose(1, 2) # [B, T, F]
         
@@ -49,7 +48,7 @@ class Hybrid2(EmbeddingModel):
 
         self.fc = nn.Linear(num_filters, num_classes)
 
-    def forward(self, text, lengths):
+    def forward(self, text, lengths, score=None):
         embedded = self.embedding(text)  # [B, T, E]
         
         # Apply packing to the GRU input
@@ -80,7 +79,7 @@ class Hybrid3(EmbeddingModel):
         # Combined classifier
         self.fc = nn.Linear(hidden_dim + num_filters, num_classes)
 
-    def forward(self, text, lengths):
+    def forward(self, text, lengths, score=None):
         x = self.embedding(text)  # [B, T, E]
 
         # --- CNN branch (No packing needed here) ---
@@ -111,7 +110,7 @@ class Hybrid4(EmbeddingModel):
         
         self.fc = nn.Linear(num_filters, num_classes)
 
-    def forward(self, text, lengths):
+    def forward(self, text, lengths, score=None):
         x = self.embedding(text) 
         
         # 1. Pack
