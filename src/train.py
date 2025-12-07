@@ -3,6 +3,7 @@ from .data.encode import seq_encode
 from .data.data import get_datasets, get_val_split
 from .models import MODELS
 from .utils.optuna import get_trial_params, get_model, get_optimizer
+from .utils.utils import EarlyStopping
 
 # Builtin
 from time import time
@@ -29,8 +30,8 @@ P_ROOT = Path.cwd()
 P_PARAM = P_ROOT / 'config' / 'vocab.json' 
 
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-N_TRIALS = 2
-EPOCHS = 2
+N_TRIALS = 20
+EPOCHS = 10
 
 
 # ********************************
@@ -89,6 +90,7 @@ def _loop(model: Module, criterion: CEL, optimizer: Optimizer,
           val=False)->float | tuple[float, float, float, float]:
     
     total_time = 0.0
+    early_stopping = EarlyStopping()
     for epoch in range(1, EPOCHS + 1):
         
         start_time = time()
@@ -107,7 +109,13 @@ def _loop(model: Module, criterion: CEL, optimizer: Optimizer,
         
         # Prune (i.e., early stopping) based on validation loss
         if not trial: continue
-        trial.report(l, epoch)
+        # if not val: continue
+        # early_stopping(l)
+        # if early_stopping.early_stop: 
+        #     print(f"Early stop! Total Training Time: {total_time:.2f}s")
+        #     trial.report(l, epoch)
+        #     raise optuna.TrialPruned()
+        # trial.report(l, epoch)
         if trial.should_prune(): raise optuna.TrialPruned()
     
     print(f"Total Training Time: {total_time:.2f}s")
@@ -180,8 +188,10 @@ if __name__ == '__main__':
     # print((X_tn.str.strip().str.len() == 0).sum())
     # print((X_va.str.strip().str.len() == 0).sum())
     
-    MODEL_NAME = 'CNN'
-    print('Tuning')
-    params = _tune(MODEL_NAME, tn_loader, va_loader)
-    print('Testing')
-    model = _test(MODEL_NAME, params, tr_loader, te_loader)
+    print(MODELS.keys())
+    TEST_MODELS = ['H2', 'H3', 'H4']
+    for model_name in TEST_MODELS:
+        print('Tuning')
+        params = _tune(model_name, tn_loader, va_loader)
+        print('Testing')
+        model = _test(model_name, params, tr_loader, te_loader)

@@ -19,5 +19,34 @@
     "lr" :          ["log", 1e-4, 1e-2],
     "optimizer":    ["cat", "Adam"],
     "weight_decay": ["log", 1e-5, 1e-2]
+  },
+  
+  "H1":  {
+    "embed_dim" :   ["cat", 100, 200],
+    "hidden_dim" :  ["cat", 64, 128, 256],
+    "lr" :          ["log", 1e-4, 1e-2],
+    "optimizer":    ["cat", "Adam"],
+    "weight_decay": ["log", 1e-5, 1e-2]
+  },
+  "H2":  {
+    "embed_dim" :   ["cat", 100, 200],
+    "hidden_dim" :  ["cat", 64, 128, 256],
+    "lr" :          ["log", 1e-4, 1e-2],
+    "optimizer":    ["cat", "Adam"],
+    "weight_decay": ["log", 1e-5, 1e-2]
+  },
+  "H3":  {
+    "embed_dim" :   ["cat", 100, 200],
+    "hidden_dim" :  ["cat", 64, 128, 256],
+    "lr" :          ["log", 1e-4, 1e-2],
+    "optimizer":    ["cat", "Adam"],
+    "weight_decay": ["log", 1e-5, 1e-2]
+  },
+  "H4":  {
+    "embed_dim" :   ["cat", 100, 200],
+    "hidden_dim" :  ["cat", 64, 128, 256],
+    "lr" :          ["log", 1e-4, 1e-2],
+    "optimizer":    ["cat", "Adam"],
+    "weight_decay": ["log", 1e-5, 1e-2]
   }
 }
