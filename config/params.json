@@ -4,21 +4,24 @@
     "hidden_dim" :  ["cat", 64, 128, 256],
     "lr" :          ["log", 1e-4, 1e-2],
     "optimizer":    ["cat", "Adam"],
-    "weight_decay": ["log", 1e-5, 1e-2]
+    "weight_decay": ["log", 1e-5, 1e-2],
+    "dropout":    ["cat", 0.2, 0.3, 0.4, 0.5]
   },
   "LSTM": {
     "embed_dim" :   ["cat", 100, 200],
     "hidden_dim" :  ["cat", 64, 128, 256],
     "lr" :          ["log", 1e-5, 1e-1],
     "optimizer":    ["cat", "Adam"],
-    "weight_decay": ["log", 1e-5, 1e-2]
+    "weight_decay": ["log", 1e-5, 1e-2],
+    "dropout":    ["cat", 0.2, 0.3, 0.4, 0.5]
   },
   "CNN":  {
     "embed_dim" :   ["cat", 100, 200],
     "hidden_dim" :  ["cat", 64, 128, 256],
     "lr" :          ["log", 1e-4, 1e-2],
     "optimizer":    ["cat", "Adam"],
-    "weight_decay": ["log", 1e-5, 1e-2]
+    "weight_decay": ["log", 1e-5, 1e-2],
+    "dropout":    ["cat", 0.2, 0.3, 0.4, 0.5]
   },
   
   "H1":  {
@@ -26,27 +29,31 @@
     "hidden_dim" :  ["cat", 64, 128, 256],
     "lr" :          ["log", 1e-4, 1e-2],
     "optimizer":    ["cat", "Adam"],
-    "weight_decay": ["log", 1e-5, 1e-2]
+    "weight_decay": ["log", 1e-5, 1e-2],
+    "dropout":    ["cat", 0.2, 0.3, 0.4, 0.5]
   },
   "H2":  {
     "embed_dim" :   ["cat", 100, 200],
     "hidden_dim" :  ["cat", 64, 128, 256],
     "lr" :          ["log", 1e-4, 1e-2],
     "optimizer":    ["cat", "Adam"],
-    "weight_decay": ["log", 1e-5, 1e-2]
+    "weight_decay": ["log", 1e-5, 1e-2],
+    "dropout":    ["cat", 0.2, 0.3, 0.4, 0.5]
   },
   "H3":  {
     "embed_dim" :   ["cat", 100, 200],
     "hidden_dim" :  ["cat", 64, 128, 256],
     "lr" :          ["log", 1e-4, 1e-2],
     "optimizer":    ["cat", "Adam"],
-    "weight_decay": ["log", 1e-5, 1e-2]
+    "weight_decay": ["log", 1e-5, 1e-2],
+    "dropout":    ["cat", 0.2, 0.3, 0.4, 0.5]
   },
   "H4":  {
     "embed_dim" :   ["cat", 100, 200],
     "hidden_dim" :  ["cat", 64, 128, 256],
     "lr" :          ["log", 1e-4, 1e-2],
     "optimizer":    ["cat", "Adam"],
-    "weight_decay": ["log", 1e-5, 1e-2]
+    "weight_decay": ["log", 1e-5, 1e-2],
+    "dropout":    ["cat", 0.2, 0.3, 0.4, 0.5]
   }
 }

@@ -30,8 +30,8 @@ P_ROOT = Path.cwd()
 P_PARAM = P_ROOT / 'config' / 'vocab.json' 
 
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-N_TRIALS = 20
-EPOCHS = 10
+N_TRIALS = 2
+EPOCHS = 3
 
 
 # ********************************
@@ -166,6 +166,15 @@ def _test(model_name: str, model_params, tr_loader: DataLoader, te_loader: DataL
     _loop(model, criterion,  optimizer, tr_loader, te_loader)
     return model
 
+
+# ********************************
+# EXPERIMENT HELPER FUNCTIONS
+# ********************************
+# def get_features(model: Module):
+#     with torch.no_grad():
+#         # feats = model.extract_features(X_train)
+
+
 # ********************************
 # INTERFACE FUNCTIONS
 # ********************************
@@ -189,9 +198,11 @@ if __name__ == '__main__':
     # print((X_va.str.strip().str.len() == 0).sum())
     
     print(MODELS.keys())
-    TEST_MODELS = ['H2', 'H3', 'H4']
+    # TEST_MODELS = ['CNN', 'RNN', 'LSTM']
+    TEST_MODELS = ['H1', 'H2', 'H3', 'H4']
     for model_name in TEST_MODELS:
-        print('Tuning')
+        
+        print(f'Tuning: {model_name}')
         params = _tune(model_name, tn_loader, va_loader)
-        print('Testing')
+        print(f'Testing: {model_name}')
         model = _test(model_name, params, tr_loader, te_loader)
