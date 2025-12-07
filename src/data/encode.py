@@ -64,20 +64,18 @@ def _text_pipeline(text, vocab):
 
 
 def _collate_batch(batch):
-    label_list, text_list, lengths, scores = [], [], [], []
+    label_list, text_list, lengths = [], [], []
 
-    for text_ids, label, score in batch:
+    for text_ids, label in batch:
         processed = torch.tensor(text_ids, dtype=torch.long)
         text_list.append(processed)
         lengths.append(len(processed))
         label_list.append(label)
-        scores.append(score)
 
     padded_texts = pad_sequence(text_list, batch_first=True, padding_value=PAD_IDX)
     lengths = torch.tensor(lengths, dtype=torch.long)
-    scores = torch.stack(scores).float()
 
-    return torch.stack(label_list), padded_texts, lengths, scores
+    return torch.stack(label_list), padded_texts, lengths
     
 
 
@@ -88,10 +86,7 @@ def _get_loader(dataset, batch_size, shuffle=False):
         shuffle=shuffle,
         collate_fn=_collate_batch
     )
-    
-def _vader(text):
-    score = sia.polarity_scores(text)
-    return score['compound']
+
 
 # ********************************
 # SENTIMENT DATASET DEFINITION
@@ -102,9 +97,6 @@ class SentimentDataset(Dataset):
         self.labels = tensor(labels.values, dtype=long)     # 2. Convert int label to LongTensor
         self.vocab = vocab                                  # 3. Convert string text to ID list
         
-        scores = texts.apply(_vader).values
-        self.vader = tensor(scores, dtype=torch.float)
-        
 
     def __len__(self):
         # Returns the total number of samples
@@ -113,7 +105,7 @@ class SentimentDataset(Dataset):
     def __getitem__(self, idx):
         # Returns one sample: the sequence of token IDs and the target label
         token_ids = _text_pipeline(self.texts[idx], self.vocab)
-        return token_ids, self.labels[idx], self.vader[idx]
+        return token_ids, self.labels[idx]
 
 
 # ********************************

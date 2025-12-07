@@ -3,7 +3,7 @@ from .data.encode import seq_encode
 from .data.data import get_datasets, get_val_split
 from .models import MODELS
 from .utils.optuna import get_trial_params, get_model, get_optimizer
-from .utils.utils import EarlyStopping
+from .utils.utils import EarlyStopping, save_output
 
 # Builtin
 from time import time
@@ -22,7 +22,6 @@ from torch.utils.data import DataLoader
 from sklearn.metrics import (f1_score, accuracy_score, 
                              precision_score, recall_score)
 
-from nltk.sentiment.vader import SentimentIntensityAnalyzer
 
 # ********************************
 # VARIABLES AND SETUP
@@ -31,8 +30,8 @@ P_ROOT = Path.cwd()
 P_PARAM = P_ROOT / 'config' / 'vocab.json' 
 
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-N_TRIALS = 2
-EPOCHS = 3
+N_TRIALS = 20
+EPOCHS = 10
 
 
 # ********************************
@@ -45,19 +44,24 @@ def _metrics(all_labels, all_preds):
     f = f1_score(all_labels, all_preds, average='macro', zero_division=0)
     return float(a), float(p), float(r), float(f)
 
-        
+def _pack_metrics(a, p, r, f):
+    return {
+        'Accuracy':  a,
+        'Precision': p,
+        'Recall':    r,
+        'F1Score':   f
+    }
+     
 
-def _train(model, dataloader, criterion, optimizer, raws=False):
+def _train(model, dataloader, criterion, optimizer):
     model.train()
     total_loss = 0
-    for labels, text, length, score in dataloader:
-        labels, text, length, score = labels.to(device), text.to(device), length.to(device), score.to(device)
+    for labels, text, length in dataloader:
+        labels, text, length = labels.to(device), text.to(device), length.to(device)
         optimizer.zero_grad()
-        
-        vader = score if raws else None
-        
+
         # Compute pred and cost
-        predicted_labels = model(text, length, vader)
+        predicted_labels = model(text, length)
         loss = criterion(predicted_labels, labels)
         # Backprop.
         loss.backward()
@@ -67,18 +71,15 @@ def _train(model, dataloader, criterion, optimizer, raws=False):
     return total_loss / len(dataloader.dataset)
 
 
-def _evaluate(model, dataloader, criterion, val=False, raws=False):
+def _evaluate(model, dataloader, criterion, val=False):
     model.eval()
     total_loss, all_preds, all_labels = 0, [], []
     with torch.no_grad():
-        for labels, text, length, score in dataloader:
-            labels, text, length, score = labels.to(device), text.to(device), length.to(device), score.to(device)
-            
-
-            vader = score if raws else None
-            
+        for labels, text, length in dataloader:
+            labels, text, length = labels.to(device), text.to(device), length.to(device)
+        
             # Compute pred and cost
-            predicted_labels = model(text, length, vader)
+            predicted_labels = model(text, length)
             loss = criterion(predicted_labels, labels)
             
             # Loss calc. and result storage
@@ -95,17 +96,16 @@ def _evaluate(model, dataloader, criterion, val=False, raws=False):
 
 def _loop(model: Module, criterion: CEL, optimizer: Optimizer, 
           tr_loader: DataLoader, te_loader: DataLoader, trial: Trial | None=None, 
-          val=False, raws=False)->float | tuple[float, float, float, float]:
+          val=False)->float | tuple[float, float, float, float]:
     
     total_time = 0.0
     early_stopping = EarlyStopping()
-    print(f"RAWS? = {raws}")
     for epoch in range(1, EPOCHS + 1):
-        
+    
         start_time = time()
         # Training & Evaluation
-        tr_loss = _train(model, tr_loader, criterion, optimizer, raws=raws)
-        l, a, p, r, f = _evaluate(model, te_loader, criterion, val, raws=raws)
+        tr_loss = _train(model, tr_loader, criterion, optimizer)
+        l, a, p, r, f = _evaluate(model, te_loader, criterion, val)
         
         # Timing & Printing
         epoch_time = time() - start_time
@@ -135,7 +135,7 @@ def _loop(model: Module, criterion: CEL, optimizer: Optimizer,
 # ********************************
 # TUNE & TEST FUNCTIONS
 # ********************************
-def _objective(trial: Trial, model_name: str, tr_loader: DataLoader, val_loader: DataLoader, raws=False):
+def _objective(trial: Trial, model_name: str, tr_loader: DataLoader, val_loader: DataLoader):
     # Guard Clause
     err_string = f"Model {model_name} not found in models dictionary."
     if model_name not in MODELS: raise ValueError(err_string)
@@ -153,18 +153,18 @@ def _objective(trial: Trial, model_name: str, tr_loader: DataLoader, val_loader:
     c = torch.nn.CrossEntropyLoss()
     o = get_optimizer(model, trial_params)
     # Train-val loop
-    l =_loop(model, c, o, tr_loader, val_loader, trial, val=True, raws=raws)
+    l =_loop(model, c, o, tr_loader, val_loader, trial, val=True)
     return l
 
 
-def _tune(model_name: str, tr_loader: DataLoader, val_loader: DataLoader, raws=False):
+def _tune(model_name: str, tr_loader: DataLoader, val_loader: DataLoader):
     # Hyperparameter Tuning
     study = optuna.create_study(direction='minimize')
-    study.optimize(lambda trial: _objective(trial, model_name, tr_loader, val_loader,  raws=raws),  n_trials=N_TRIALS)
+    study.optimize(lambda trial: _objective(trial, model_name, tr_loader, val_loader),  n_trials=N_TRIALS)
     return study.best_params
 
 
-def _test(model_name: str, model_params, tr_loader: DataLoader, te_loader: DataLoader, raws=False) -> Module:
+def _test(model_name: str, model_params, tr_loader: DataLoader, te_loader: DataLoader):
     # Model testing
     vocab_params = json.load(open(P_PARAM))
     model = get_model(model_name, model_params, vocab_params)
@@ -172,8 +172,9 @@ def _test(model_name: str, model_params, tr_loader: DataLoader, te_loader: DataL
     
     criterion = torch.nn.CrossEntropyLoss()
     optimizer = get_optimizer(model, model_params)
-    _loop(model, criterion,  optimizer, tr_loader, te_loader, raws=raws)
-    return model
+    a, p, r, f = _loop(model, criterion, optimizer, tr_loader, te_loader) # type: ignore
+
+    return model, _pack_metrics(a, p, r, f)
 
 
 # ********************************
@@ -207,12 +208,12 @@ if __name__ == '__main__':
     # print((X_va.str.strip().str.len() == 0).sum())
     
     print(MODELS.keys())
-    # TEST_MODELS = ['CNN', 'RNN', 'LSTM']
-    # TEST_MODELS = ['H1', 'H2', 'H3', 'H4']
-    TEST_MODELS = ['CNN']
+    TEST_MODELS = ['CNN', 'RNN', 'LSTM', 'H1', 'H2', 'H3', 'H4']
+
     for model_name in TEST_MODELS:
         
         print(f'Tuning: {model_name}')
-        params = _tune(model_name, tn_loader, va_loader, raws=True)
+        params = _tune(model_name, tn_loader, va_loader)
         print(f'Testing: {model_name}')
-        model = _test(model_name, params, tr_loader, te_loader, raws=True)
+        model, res = _test(model_name, params, tr_loader, te_loader)
+        save_output(res, params, f"{model_name}", P_ROOT)
