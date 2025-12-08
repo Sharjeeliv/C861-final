@@ -129,8 +129,8 @@ def seq_encode(X_tr: pd.Series, y_tr: pd.Series,
     # 1. Build vocabulary (word-to-id)
     vocab, _ = _build_vocab(X_tr, val)
     # 2. Build datasets
-    tr_dataset = SentimentDataset(X_tr, y_tr, vocab)
-    te_dataset = SentimentDataset(X_te, y_te, vocab)
+    tr_dataset = SentimentDataset(X_tr.reset_index(drop=True), y_tr.reset_index(drop=True), vocab)
+    te_dataset = SentimentDataset(X_te.reset_index(drop=True), y_te.reset_index(drop=True), vocab)
     # 3. Build dataloades
     tr_loader = _get_loader(tr_dataset, BATCH_SIZE, True)
     te_loader = _get_loader(te_dataset, BATCH_SIZE, False)

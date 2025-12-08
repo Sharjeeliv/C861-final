@@ -1,0 +1,16 @@
+{
+    "Evaluation_Results": {
+        "Accuracy": 0.9169169169169169,
+        "Precision": 0.9123301014244483,
+        "Recall": 0.9189919280695,
+        "F1Score": 0.9153752638527105
+    },
+    "Best_Hyperparameters": {
+        "embed_dim": 100,
+        "hidden_dim": 128,
+        "lr": 0.002623304017152079,
+        "optimizer": "Adam",
+        "weight_decay": 0.0003118557774032976,
+        "dropout": 0.5
+    }
+}
