@@ -11,6 +11,7 @@ from pathlib import Path
 import json
 
 # External
+import numpy as np
 import optuna
 from optuna import Trial
 
@@ -96,7 +97,7 @@ def _evaluate(model, dataloader, criterion, val=False):
 
 def _loop(model: Module, criterion: CEL, optimizer: Optimizer, 
           tr_loader: DataLoader, te_loader: DataLoader, trial: Trial | None=None, 
-          val=False)->float | tuple[float, float, float, float]:
+          val=False, earlystop=False)->float | tuple[float, float, float, float]:
     
     total_time = 0.0
     early_stopping = EarlyStopping()
@@ -118,13 +119,10 @@ def _loop(model: Module, criterion: CEL, optimizer: Optimizer,
         
         # Prune (i.e., early stopping) based on validation loss
         if not trial: continue
-        # if not val: continue
-        # early_stopping(l)
-        # if early_stopping.early_stop: 
-        #     print(f"Early stop! Total Training Time: {total_time:.2f}s")
-        #     trial.report(l, epoch)
-        #     raise optuna.TrialPruned()
-        # trial.report(l, epoch)
+        early_stopping(l)
+        if earlystop and early_stopping.early_stop: 
+            print(f"Early stop! Total Training Time: {total_time:.2f}s")
+            break
         if trial.should_prune(): raise optuna.TrialPruned()
     
     print(f"Total Training Time: {total_time:.2f}s")
@@ -157,14 +155,17 @@ def _objective(trial: Trial, model_name: str, tr_loader: DataLoader, val_loader:
     return l
 
 
-def _tune(model_name: str, tr_loader: DataLoader, val_loader: DataLoader):
+# ********************************
+# INTERFACE FUNCTIONS
+# ********************************
+def tune(model_name: str, tr_loader: DataLoader, val_loader: DataLoader):
     # Hyperparameter Tuning
     study = optuna.create_study(direction='minimize')
     study.optimize(lambda trial: _objective(trial, model_name, tr_loader, val_loader),  n_trials=N_TRIALS)
     return study.best_params
 
 
-def _test(model_name: str, model_params, tr_loader: DataLoader, te_loader: DataLoader):
+def test(model_name: str, model_params, tr_loader: DataLoader, te_loader: DataLoader, es=True):
     # Model testing
     vocab_params = json.load(open(P_PARAM))
     model = get_model(model_name, model_params, vocab_params)
@@ -172,7 +173,7 @@ def _test(model_name: str, model_params, tr_loader: DataLoader, te_loader: DataL
     
     criterion = torch.nn.CrossEntropyLoss()
     optimizer = get_optimizer(model, model_params)
-    a, p, r, f = _loop(model, criterion, optimizer, tr_loader, te_loader) # type: ignore
+    a, p, r, f = _loop(model, criterion, optimizer, tr_loader, te_loader, earlystop=es) # type: ignore
 
     return model, _pack_metrics(a, p, r, f)
 
@@ -180,15 +181,20 @@ def _test(model_name: str, model_params, tr_loader: DataLoader, te_loader: DataL
 # ********************************
 # EXPERIMENT HELPER FUNCTIONS
 # ********************************
-# def get_features(model: Module):
-#     with torch.no_grad():
-#         # feats = model.extract_features(X_train)
-
-
-# ********************************
-# INTERFACE FUNCTIONS
-# ********************************
-
+def extract_features(model, loader):
+    model.eval()
+    features, labels = [], []
+    with torch.no_grad():
+        for y, text, length in loader:
+            text, lengths = text.to(device), length.to(device)
+            
+            f = model.repr(text, lengths)
+            features.append(f.cpu().numpy())
+            labels.append(y.numpy())
+    
+    X = np.vstack(features)
+    y = np.hstack(labels)
+    return X, y
 
 
 # ********************************
@@ -208,12 +214,12 @@ if __name__ == '__main__':
     # print((X_va.str.strip().str.len() == 0).sum())
     
     print(MODELS.keys())
-    TEST_MODELS = ['CNN', 'RNN', 'LSTM', 'H1', 'H2', 'H3', 'H4']
-
+    # TEST_MODELS = ['CNN', 'RNN', 'LSTM', 'H1', 'H2', 'H3', 'H4']
+    TEST_MODELS = ['CNN']
     for model_name in TEST_MODELS:
         
         print(f'Tuning: {model_name}')
-        params = _tune(model_name, tn_loader, va_loader)
+        params = tune(model_name, tn_loader, va_loader)
         print(f'Testing: {model_name}')
-        model, res = _test(model_name, params, tr_loader, te_loader)
+        model, res = test(model_name, params, tr_loader, te_loader)
         save_output(res, params, f"{model_name}", P_ROOT)

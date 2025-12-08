@@ -26,7 +26,7 @@ class BaseCNN(EmbeddingModel):
         # FC layer input size: (number of kernels * number of filters)
         self.fc = nn.Linear(len(self.convs) * num_filters, num_classes)
 
-    def forward(self, text, lengths, score=None):
+    def repr(self, text, lengths):
         # text shape: [B, T]
         embedded = self.embedding(text) 
         # Permute for Conv1d: [B, E, T]
@@ -38,8 +38,10 @@ class BaseCNN(EmbeddingModel):
         pooled = [F.max_pool1d(c, c.shape[2]).squeeze(2) for c in conved]
         # 3. Concatenate all pooled features
         cat = torch.cat(pooled, dim=1) 
-        # 4. Apply Dropout and Final FC layer
-        out = self.dropout(cat)
+        return cat
+
+    def forward(self, text, lengths):
+        out = self.dropout(self.repr(text, lengths))
         return self.fc(out)
 
 
@@ -54,7 +56,7 @@ class BaseRNN(EmbeddingModel):
         self.rnn = nn.GRU(embed_dim, hidden_dim, batch_first=True)
         self.fc = nn.Linear(hidden_dim, num_classes)
 
-    def forward(self, text, lengths, score=None):
+    def repr(self, text, lengths):
         embedded = self.embedding(text) # [B, T, E]
         
         # 1. Apply Packing (Crucial for RNNs) 
@@ -70,9 +72,10 @@ class BaseRNN(EmbeddingModel):
         
         # hidden shape: [1, B, H]. Squeeze to [B, H]
         hidden_last = hidden.squeeze(0)
+        return hidden_last
 
-        # 3. Apply Dropout and Final FC layer
-        out = self.dropout(hidden_last) 
+    def forward(self, text, lengths):
+        out = self.dropout(self.repr(text, lengths))
         return self.fc(out)
 
 # ********************************
@@ -92,7 +95,7 @@ class BaseLSTM(EmbeddingModel):
         # FC layer input size must be 2 * hidden_dim
         self.fc = nn.Linear(hidden_dim * 2, num_classes) 
 
-    def forward(self, text, lengths, score=None):
+    def repr(self, text, lengths):
         embedded = self.embedding(text)
         
         # 1. Apply Packing
@@ -105,7 +108,8 @@ class BaseLSTM(EmbeddingModel):
         
         # 3. Concatenate final forward (hidden[-2]) and backward (hidden[-1]) states
         hidden_last = torch.cat((hidden[-2, :, :], hidden[-1, :, :]), dim=1) 
-                                           
-        # 4. Apply Dropout and Final FC layer
-        out = self.dropout(hidden_last)
+        return hidden_last
+
+    def forward(self, text, lengths):
+        out = self.dropout(self.repr(text, lengths))
         return self.fc(out)

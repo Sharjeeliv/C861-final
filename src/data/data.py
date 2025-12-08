@@ -277,20 +277,19 @@ def get_val_split(X_tr, y_tr, n: float = 0.2, r: int = 42):
     splits = [split.reset_index(drop=True) for split in splits]           
     return splits
 
+
 # ********************************
 # MAIN AND TESTING FUNCTIONS
 # ********************************
 from sklearn.metrics import f1_score, accuracy_score, precision_score, recall_score
-
+from nltk.sentiment.vader import SentimentIntensityAnalyzer
+nltk.download('vader_lexicon', download_dir=NLTK_PATH)
+    
 @time_execution
 def vader():
     file = ROOT / 'data' / 'training.csv'
     df = preprocess(file, step=Step.L)
-    # df = _load_data_raw(file)
-    _print_samples(df, 10)
-    
-    from nltk.sentiment.vader import SentimentIntensityAnalyzer
-    nltk.download('vader_lexicon', download_dir=NLTK_PATH)
+    df = df.drop_duplicates(subset=['id'], keep='first')
     
     analyzer = SentimentIntensityAnalyzer()
     
@@ -306,7 +305,6 @@ def vader():
         f = f1_score(all_labels, all_preds, average='macro')
         return a, p, r, f
     
-    # df = df.dropna()
     scores = df['text'].apply(analyzer.polarity_scores)
     scores = scores.apply(relabel_compound)
     
@@ -318,23 +316,15 @@ def vader():
     print(f"F1-SCore:   {f:.4}")
     # _save_data_csv(file, 'vader', df)
     
-    # Vader is almost complete
-    # Properly storing metrics and computing results
-    # proper setup and calling, etc.
-
-
-def temp():
-    file = ROOT / 'data' / 'training.csv'
-    df = preprocess(file, step=Step.L, run_all=True)
-    
 
 if __name__ == "__main__":
-    print('augmented')
-    X_tr, y_tr, X_te, y_te = get_datasets(unique=False)
-    print(len(X_tr))
-    print(len(X_te))
+    vader()
+    # print('augmented')
+    # X_tr, y_tr, X_te, y_te = get_datasets(unique=False)
+    # print(len(X_tr))
+    # print(len(X_te))
     
-    print('unique')
-    X_tr, y_tr, X_te, y_te = get_datasets(unique=True)
-    print(len(X_tr))
-    print(len(X_te))
+    # print('unique')
+    # X_tr, y_tr, X_te, y_te = get_datasets(unique=True)
+    # print(len(X_tr))
+    # print(len(X_te))

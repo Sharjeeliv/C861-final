@@ -1,0 +1,9 @@
+{
+    "Evaluation_Results": {
+        "Accuracy": 0.6646646646646647,
+        "Precision": 0.6628984386223679,
+        "Recall": 0.6510883560133272,
+        "F1Score": 0.6556479661020316
+    },
+    "Best_Hyperparameters": {}
+}

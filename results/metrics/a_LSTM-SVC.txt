@@ -1,0 +1,7 @@
+=== Evaluation Results ===
+Accuracy       0.8198
+Precision      0.8170
+Recall         0.8164
+F1Score        0.8158
+
+=== Best Hyperparameters ===

@@ -20,7 +20,7 @@ class Hybrid1(EmbeddingModel):
         self.rnn = nn.GRU(num_filters, hidden_dim, batch_first=True)
         self.fc = nn.Linear(hidden_dim, num_classes)
 
-    def forward(self, text, lengths):
+    def repr(self, text, lengths):
         embedded = self.embedding(text)             # [B, T, E]
         x = self.cnn_block(embedded).transpose(1, 2) # [B, T, F]
         
@@ -31,9 +31,12 @@ class Hybrid1(EmbeddingModel):
             enforce_sorted=False)
         
         # Get final hidden state
-        _, h = self.rnn(packed)                      # h: [1, B, H]
-        
-        return self.fc(h.squeeze(0))
+        _, h = self.rnn(packed)   
+        return h.squeeze(0)
+
+    def forward(self, text, lengths):
+        out = self.dropout(self.repr(text, lengths))
+        return self.fc(out)
 
 
 # ********************************
@@ -48,10 +51,9 @@ class Hybrid2(EmbeddingModel):
         
         # Input to CNN is H, Output is F
         self.cnn_block = SingleCNNBlock(hidden_dim, num_filters)
-
         self.fc = nn.Linear(num_filters, num_classes)
 
-    def forward(self, text, lengths):
+    def repr(self, text, lengths):
         embedded = self.embedding(text)  # [B, T, E]
         
         # Apply packing to the GRU input
@@ -69,7 +71,11 @@ class Hybrid2(EmbeddingModel):
         
         # Global Max Pooling
         pooled = torch.max(cnn_out, dim=2).values
-        return self.fc(pooled)
+        return pooled
+
+    def forward(self, text, lengths):
+        out = self.dropout(self.repr(text, lengths))
+        return self.fc(out)
 
 
 # ********************************
@@ -88,7 +94,7 @@ class Hybrid3(EmbeddingModel):
         # Combined classifier
         self.fc = nn.Linear(hidden_dim + num_filters, num_classes)
 
-    def forward(self, text, lengths):
+    def repr(self, text, lengths):
         x = self.embedding(text)  # [B, T, E]
 
         # --- CNN branch (No packing needed here) ---
@@ -106,7 +112,11 @@ class Hybrid3(EmbeddingModel):
 
         # Concatenate and Classify
         combined = torch.cat([cnn_vec, rnn_vec], dim=1)
-        return self.fc(combined)
+        return combined
+
+    def forward(self, text, lengths):
+        out = self.dropout(self.repr(text, lengths))
+        return self.fc(out)
 
 
 # ********************************
@@ -123,7 +133,7 @@ class Hybrid4(EmbeddingModel):
         
         self.fc = nn.Linear(num_filters, num_classes)
 
-    def forward(self, text, lengths):
+    def repr(self, text, lengths):
         x = self.embedding(text) 
         
         # 1. Pack
@@ -145,4 +155,8 @@ class Hybrid4(EmbeddingModel):
         
         # Global Max Pool
         pooled = torch.max(cnn_out, dim=2).values
-        return self.fc(pooled)
+        return pooled
+
+    def forward(self, text, lengths):
+        out = self.dropout(self.repr(text, lengths))
+        return self.fc(out)
