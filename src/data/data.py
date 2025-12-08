@@ -253,11 +253,15 @@ def get_datasets(train_file: str='training.csv',
                  test_file: str='testing.csv', 
                  step: Step=Step.L, 
                  rel_path: Path | str = 'data',
-                 run_all=False):
+                 run_all=False, unique=False):
     
     base = ROOT / rel_path
     df_tr = preprocess(base / train_file, step=step, run_all=run_all)
     df_te = preprocess(base / test_file, step=step, run_all=run_all)
+    
+    if unique:
+        df_tr = df_tr.drop_duplicates(subset=['id'], keep='first')
+        df_te = df_te.drop_duplicates(subset=['id'], keep='first')
     
     df_tr['sentiment'] = df_tr['sentiment'].apply(_encode_sentiments)
     df_te['sentiment'] = df_te['sentiment'].apply(_encode_sentiments)
@@ -325,4 +329,12 @@ def temp():
     
 
 if __name__ == "__main__":
-    vader()
+    print('augmented')
+    X_tr, y_tr, X_te, y_te = get_datasets(unique=False)
+    print(len(X_tr))
+    print(len(X_te))
+    
+    print('unique')
+    X_tr, y_tr, X_te, y_te = get_datasets(unique=True)
+    print(len(X_tr))
+    print(len(X_te))
