@@ -318,7 +318,99 @@ def vader():
     
 
 if __name__ == "__main__":
-    vader()
+    
+    import pandas as pd
+    from collections import Counter
+    import string
+    import re
+    
+    file = ROOT / 'data' / 'training.csv'
+    df = preprocess(file)
+    
+    df = df.drop_duplicates(subset=['id'], keep='first')
+    
+    
+    # Tokenization and cleaning function: removes punctuation, lowercases, and splits by space.
+    def clean_and_tokenize(text):
+        # Remove punctuation
+        text = text.translate(str.maketrans('', '', string.punctuation))
+        # Simple tokenization (split by space) and lowercasing
+        return text.lower().split()
+    
+    
+    # 1. Dataset size
+    dataset_size = len(df)
+    
+        # Number of Classes (Labels)
+    num_classes = df['sentiment'].nunique()
+
+    # Label Distribution (Percentage)
+    label_distribution = (df['sentiment'].value_counts(normalize=True) * 100).round(2).to_dict()
+
+    # --- 2. Calculate Token Counts for Length Statistics ---
+
+    # Calculate text length in tokens for each row
+    df['token_count'] = df['text'].apply(lambda x: len(clean_and_tokenize(x)))
+
+    # Total Number of Tokens (Sum of all words)
+    total_tokens = df['token_count'].sum()
+
+    # Average, Median, and Max Text Length
+    avg_text_length = df['token_count'].mean()
+    median_text_length = df['token_count'].median()
+    max_text_length = df['token_count'].max()
+
+    # --- 3. Label-Specific Statistics ---
+
+    # Average Words per Label (Mean)
+    words_per_label = df.groupby('sentiment')['token_count'].mean().round(2).to_dict()
+
+    # --- 4. Vocabulary Statistics ---
+
+    # Combine all tokens into a single list
+    all_tokens = [token for text in df['text'] for token in clean_and_tokenize(text)]
+
+    # Calculate token counts
+    token_counts = Counter(all_tokens)
+
+    # Total Vocabulary Size (Unique Words)
+    total_vocab_size = len(token_counts)
+
+    # Top 10 Most Frequent Words
+    top_10_words = token_counts.most_common(10)
+
+    # --- 5. Formatting the Results Table ---
+
+    stats_df = pd.DataFrame({
+        'Statistic': [
+            "Dataset Size",
+            "Number of Classes (Labels)",
+            "Label Distribution (\%)",
+            "Total Vocabulary Size (Unique Words)",
+            "Total Number of Tokens",
+            "Average Text Length (Tokens)",
+            "Median Text Length (Tokens)",
+            "Max Text Length (Tokens)",
+            "Average Text Length per Label (Tokens)",
+            "Top 10 Most Frequent Words (Word, Count)"
+        ],
+        'Value': [
+            dataset_size,
+            num_classes,
+            label_distribution,
+            total_vocab_size,
+            total_tokens,
+            avg_text_length,
+            median_text_length,
+            max_text_length,
+            words_per_label,
+            top_10_words
+        ]
+    })
+
+    print(stats_df.to_markdown(index=False))
+    
+    # vader()
     # print('augmented')
     # X_tr, y_tr, X_te, y_te = get_datasets(unique=False)
     # print(len(X_tr))
