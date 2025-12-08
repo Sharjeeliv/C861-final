@@ -59,11 +59,14 @@ def save_output(res: Dict, params: Dict, title: str, root):
         name (str): Base file name (without extension)
     """
     # Verify base path
-    path = root / 'results' / 'metrics'
-    os.makedirs(path, exist_ok=True)
+    path_text = root / 'results' / 'text'
+    os.makedirs(path_text, exist_ok=True)
+    
+    path_json = root / 'results' / 'json'
+    os.makedirs(path_json, exist_ok=True)
 
     # Text Output
-    with open(path / f"{title}.txt", "w") as f:
+    with open(path_text / f"{title}.txt", "w") as f:
         f.write("=== Evaluation Results ===\n")
         for k, v in res.items(): f.write(f"{k:<15}{v:.4f}\n")
 
@@ -75,7 +78,7 @@ def save_output(res: Dict, params: Dict, title: str, root):
         "Evaluation_Results": res,
         "Best_Hyperparameters": params
     }
-    with open(path / f"{title}.json", "w") as jf:
+    with open(path_json / f"{title}.json", "w") as jf:
         json.dump(output_data, jf, indent=4)
 
     print(f"Output saved to '{title}'.txt/.json")

@@ -83,5 +83,5 @@ def expr_2(run_all=False, unique=False):
 # MAIN FUNCTION
 # ********************************
 if __name__ == "__main__":
-    expr_1()
-    # expr_2()
+    expr_1(unique=True)
+    expr_2(unique=True)

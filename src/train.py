@@ -31,8 +31,9 @@ P_ROOT = Path.cwd()
 P_PARAM = P_ROOT / 'config' / 'vocab.json' 
 
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-N_TRIALS = 20
-EPOCHS = 10
+N_TRIALS = 10
+TE_EPOCHS = 15
+TR_EPOCHS = 5
 
 
 # ********************************
@@ -99,6 +100,7 @@ def _loop(model: Module, criterion: CEL, optimizer: Optimizer,
           tr_loader: DataLoader, te_loader: DataLoader, trial: Trial | None=None, 
           val=False, earlystop=False)->float | tuple[float, float, float, float]:
     
+    EPOCHS = TR_EPOCHS if trial else TE_EPOCHS
     total_time = 0.0
     early_stopping = EarlyStopping()
     for epoch in range(1, EPOCHS + 1):
@@ -118,11 +120,11 @@ def _loop(model: Module, criterion: CEL, optimizer: Optimizer,
               f"| Time: {epoch_time:.2f}s")
         
         # Prune (i.e., early stopping) based on validation loss
-        if not trial: continue
         early_stopping(l)
         if earlystop and early_stopping.early_stop: 
             print(f"Early stop! Total Training Time: {total_time:.2f}s")
             break
+        if not trial: continue
         if trial.should_prune(): raise optuna.TrialPruned()
     
     print(f"Total Training Time: {total_time:.2f}s")

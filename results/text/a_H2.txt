@@ -1,0 +1,13 @@
+=== Evaluation Results ===
+Accuracy       0.9590
+Precision      0.9582
+Recall         0.9576
+F1Score        0.9579
+
+=== Best Hyperparameters ===
+embed_dim           100
+hidden_dim          64
+lr                  0.002663239114431269
+optimizer           Adam
+weight_decay        2.198342159898805e-05
+dropout             0.5
