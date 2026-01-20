@@ -9,7 +9,7 @@ Sequential models benefit strongly from data augmentation, while convolutional m
 ### **Citation**
 If you find this work useful, please consider citing:
 ```
-@misc{sharjeelc861m,
+@misc{sharjeelm,
   title={A Comprehensive Study of Deep Learning Models and Hybridization for Sentiment Analysis on the Twitter Dataset},
   author={Sharjeel Mustafa},
   year={2025},
